@@ -325,38 +325,66 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
                             </div>
                           </div>
 
-                          {/* Quality Control */}
-                          {qualityLevels.length > 0 && (
-                            <div className="pt-2 border-t">
-                              <div className="text-sm font-medium mb-2 px-2">Quality</div>
-                              <div className="space-y-1">
-                                <button
-                                  onClick={() => changeQuality(-1)}
-                                  className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
-                                    currentQuality === -1 ? 'bg-accent font-medium' : ''
-                                  }`}
-                                >
-                                  Auto (Recommended)
-                                </button>
-                                {qualityLevels.map((level) => (
+                           {/* Quality Control */}
+                          <div className="pt-2 border-t">
+                            <div className="text-sm font-medium mb-2 px-2">Quality</div>
+                            <div className="space-y-1">
+                              <button
+                                onClick={() => changeQuality(-1)}
+                                className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
+                                  currentQuality === -1 ? 'bg-accent font-medium' : ''
+                                }`}
+                              >
+                                Auto (Recommended)
+                              </button>
+                              
+                              {/* Standard Quality Options */}
+                              {[144, 240, 360, 480, 720, 1080].map((height) => {
+                                const matchingLevel = qualityLevels.find(level => level.height === height);
+                                const isAvailable = !!matchingLevel;
+                                const isSelected = matchingLevel && currentQuality === matchingLevel.index;
+                                
+                                const getQualityLabel = (h: number) => {
+                                  switch (h) {
+                                    case 144: return `${h}p – Very low quality`;
+                                    case 240: return `${h}p – Low quality`;
+                                    case 360: return `${h}p – Standard definition (SD)`;
+                                    case 480: return `${h}p – Enhanced SD / near DVD quality`;
+                                    case 720: return `${h}p (HD) – High definition`;
+                                    case 1080: return `${h}p (Full HD) – Full high definition`;
+                                    default: return `${h}p`;
+                                  }
+                                };
+                                
+                                return (
                                   <button
-                                    key={level.index}
-                                    onClick={() => changeQuality(level.index)}
-                                    className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
-                                      currentQuality === level.index ? 'bg-accent font-medium' : ''
+                                    key={height}
+                                    onClick={() => isAvailable && matchingLevel && changeQuality(matchingLevel.index)}
+                                    disabled={!isAvailable}
+                                    className={`w-full text-left px-2 py-1.5 text-sm rounded transition-colors ${
+                                      isAvailable 
+                                        ? `hover:bg-accent cursor-pointer ${isSelected ? 'bg-accent font-medium' : ''}` 
+                                        : 'opacity-50 cursor-not-allowed text-muted-foreground'
                                     }`}
                                   >
                                     <div className="flex justify-between items-center">
-                                      <span>{level.height}p</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {(level.bitrate / 1000000).toFixed(1)} Mbps
-                                      </span>
+                                      <span>{getQualityLabel(height)}</span>
+                                      {isAvailable && matchingLevel && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {(matchingLevel.bitrate / 1000000).toFixed(1)} Mbps
+                                        </span>
+                                      )}
+                                      {!isAvailable && (
+                                        <span className="text-xs text-muted-foreground">
+                                          Not available
+                                        </span>
+                                      )}
                                     </div>
                                   </button>
-                                ))}
-                              </div>
+                                );
+                              })}
                             </div>
-                          )}
+                          </div>
                         </div>
                       </PopoverContent>
                     </Popover>
