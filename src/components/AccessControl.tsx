@@ -34,13 +34,21 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
   const redirectToShortener = async () => {
     try {
       setIsRedirecting(true);
-      const response = await fetch(`https://vplink.in/api?api=ad3ce711eb354d522cbac856b0dfa149b6c71e43&url=${encodeURIComponent(homepageUrl)}&alias=auto`);
+      
+      // Add the from_shortener parameter to the homepage URL
+      const returnUrl = new URL(homepageUrl);
+      returnUrl.searchParams.set('from_shortener', 'true');
+      
+      const apiUrl = `https://vplink.in/api?api=ad3ce711eb354d522cbac856b0dfa149b6c71e43&url=${encodeURIComponent(returnUrl.toString())}&alias=auto`;
+      
+      const response = await fetch(apiUrl);
       const data = await response.json();
       
-      if (data.shortenedUrl) {
-        window.location.href = data.shortenedUrl;
+      if (data.shortenedUrl || data.shorturl) {
+        // Some APIs return 'shortenedUrl', others 'shorturl'
+        window.location.href = data.shortenedUrl || data.shorturl;
       } else {
-        console.error('Failed to get shortener URL');
+        console.error('Failed to get shortener URL. Response:', data);
         // Fallback: grant access locally for development
         localStorage.setItem('access_granted', Date.now().toString());
         setHasAccess(true);

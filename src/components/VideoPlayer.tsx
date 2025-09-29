@@ -24,7 +24,7 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [qualityLevels, setQualityLevels] = useState<Array<{ height: number; index: number }>>([]);
+  const [qualityLevels, setQualityLevels] = useState<Array<{ height: number; bitrate: number; index: number }>>([]);
   const [currentQuality, setCurrentQuality] = useState<number>(-1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
@@ -54,11 +54,15 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
         setIsLoading(false);
         setError(null);
         
-        // Get available quality levels
-        const levels = hls.levels.map((level, index) => ({
-          height: level.height,
-          index: index,
-        }));
+        // Get available quality levels and sort by height
+        const levels = hls.levels
+          .map((level, index) => ({
+            height: level.height,
+            bitrate: level.bitrate,
+            index: index,
+          }))
+          .sort((a, b) => b.height - a.height);
+        
         setQualityLevels(levels);
         setCurrentQuality(-1); // -1 means auto
       });
@@ -173,9 +177,14 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
       hlsRef.current.currentLevel = qualityIndex;
       setCurrentQuality(qualityIndex);
       setShowSettings(false);
+      
+      const qualityLabel = qualityIndex === -1 
+        ? 'Auto' 
+        : `${qualityLevels.find(q => q.index === qualityIndex)?.height}p`;
+      
       toast({
         title: 'Quality Changed',
-        description: qualityIndex === -1 ? 'Auto quality selected' : `${qualityLevels.find(q => q.index === qualityIndex)?.height}p selected`,
+        description: `Video quality set to ${qualityLabel}`,
       });
     }
   };
@@ -327,21 +336,24 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
                                     currentQuality === -1 ? 'bg-accent font-medium' : ''
                                   }`}
                                 >
-                                  Auto
+                                  Auto (Recommended)
                                 </button>
-                                {qualityLevels
-                                  .sort((a, b) => b.height - a.height)
-                                  .map((level) => (
-                                    <button
-                                      key={level.index}
-                                      onClick={() => changeQuality(level.index)}
-                                      className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
-                                        currentQuality === level.index ? 'bg-accent font-medium' : ''
-                                      }`}
-                                    >
-                                      {level.height}p
-                                    </button>
-                                  ))}
+                                {qualityLevels.map((level) => (
+                                  <button
+                                    key={level.index}
+                                    onClick={() => changeQuality(level.index)}
+                                    className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
+                                      currentQuality === level.index ? 'bg-accent font-medium' : ''
+                                    }`}
+                                  >
+                                    <div className="flex justify-between items-center">
+                                      <span>{level.height}p</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {(level.bitrate / 1000000).toFixed(1)} Mbps
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
                               </div>
                             </div>
                           )}
