@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // Import HLS.js
 import Hls from 'hls.js';
@@ -23,6 +24,10 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [qualityLevels, setQualityLevels] = useState<Array<{ height: number; index: number }>>([]);
+  const [currentQuality, setCurrentQuality] = useState<number>(-1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [showSettings, setShowSettings] = useState(false);
 
   const videoId = btoa(url).substring(0, 20); // Create unique ID for progress storage
 
@@ -48,6 +53,14 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
         setError(null);
+        
+        // Get available quality levels
+        const levels = hls.levels.map((level, index) => ({
+          height: level.height,
+          index: index,
+        }));
+        setQualityLevels(levels);
+        setCurrentQuality(-1); // -1 means auto
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -155,6 +168,33 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const changeQuality = (qualityIndex: number) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = qualityIndex;
+      setCurrentQuality(qualityIndex);
+      setShowSettings(false);
+      toast({
+        title: 'Quality Changed',
+        description: qualityIndex === -1 ? 'Auto quality selected' : `${qualityLevels.find(q => q.index === qualityIndex)?.height}p selected`,
+      });
+    }
+  };
+
+  const changePlaybackRate = (rate: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    video.playbackRate = rate;
+    setPlaybackRate(rate);
+    setShowSettings(false);
+    toast({
+      title: 'Speed Changed',
+      description: `Playback speed: ${rate}x`,
+    });
+  };
+
+  const playbackRates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -245,14 +285,79 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
                     </span>
                   </div>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleFullscreen}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <Maximize className="h-5 w-5" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Popover open={showSettings} onOpenChange={setShowSettings}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-white hover:bg-white/20"
+                        >
+                          <Settings className="h-5 w-5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2" side="top" align="end">
+                        <div className="space-y-2">
+                          {/* Speed Control */}
+                          <div>
+                            <div className="text-sm font-medium mb-2 px-2">Playback Speed</div>
+                            <div className="space-y-1">
+                              {playbackRates.map((rate) => (
+                                <button
+                                  key={rate}
+                                  onClick={() => changePlaybackRate(rate)}
+                                  className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
+                                    playbackRate === rate ? 'bg-accent font-medium' : ''
+                                  }`}
+                                >
+                                  {rate === 1 ? 'Normal' : `${rate}x`}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Quality Control */}
+                          {qualityLevels.length > 0 && (
+                            <div className="pt-2 border-t">
+                              <div className="text-sm font-medium mb-2 px-2">Quality</div>
+                              <div className="space-y-1">
+                                <button
+                                  onClick={() => changeQuality(-1)}
+                                  className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
+                                    currentQuality === -1 ? 'bg-accent font-medium' : ''
+                                  }`}
+                                >
+                                  Auto
+                                </button>
+                                {qualityLevels
+                                  .sort((a, b) => b.height - a.height)
+                                  .map((level) => (
+                                    <button
+                                      key={level.index}
+                                      onClick={() => changeQuality(level.index)}
+                                      className={`w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent ${
+                                        currentQuality === level.index ? 'bg-accent font-medium' : ''
+                                      }`}
+                                    >
+                                      {level.height}p
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleFullscreen}
+                      className="text-white hover:bg-white/20"
+                    >
+                      <Maximize className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
