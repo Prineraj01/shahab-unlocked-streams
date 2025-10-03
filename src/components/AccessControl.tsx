@@ -13,6 +13,7 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
   const [hasAccess, setHasAccess] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Check if user has valid access (within 24 hours)
   const checkAccess = () => {
@@ -38,7 +39,7 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
       setIsRedirecting(true);
       
       // Build return URL with tracking parameter
-      const returnUrl = new URL(homepageUrl);
+      const returnUrl = new URL(window.location.href);
       returnUrl.searchParams.set('from_shortener', 'true');
       
       // Create unique alias to avoid conflicts
@@ -49,21 +50,21 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
       const response = await fetch(apiUrl);
       const data = await response.json();
       
+      console.log('Shortener response:', data); // Debug log
+      
       if (data.status === 'success' && data.shortenedUrl) {
         // Success! Redirect to shortened URL
+        console.log('Redirecting to:', data.shortenedUrl);
         window.location.href = data.shortenedUrl;
       } else {
+        // Show error - don't grant access without going through shortener
         console.error('Shortener API error:', data);
-        // Fallback - redirect directly if shortener fails
-        window.location.href = returnUrl.toString();
+        setError(`Shortener error: ${data.message || 'Unknown error'}`);
+        setIsRedirecting(false);
       }
     } catch (error) {
       console.error('Redirect error:', error);
-      // On error, redirect directly
-      const returnUrl = new URL(homepageUrl);
-      returnUrl.searchParams.set('from_shortener', 'true');
-      window.location.href = returnUrl.toString();
-    } finally {
+      setError('Network error. Please check your connection and try again.');
       setIsRedirecting(false);
     }
   };
@@ -120,11 +121,18 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
             <p className="text-muted-foreground">
               You need to complete a quick verification to access this content for 24 hours.
             </p>
-        <Button 
-          onClick={redirectToShortener} 
-          disabled={isRedirecting}
-          variant="hero"
-          className="w-full"
+            
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+            
+            <Button 
+              onClick={redirectToShortener} 
+              disabled={isRedirecting}
+              variant="hero"
+              className="w-full"
             >
               {isRedirecting ? (
                 <>
@@ -135,9 +143,12 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
                 'Get 24-Hour Access'
               )}
             </Button>
-            <p className="text-xs text-muted-foreground">
-              You'll be redirected automatically in a moment
-            </p>
+            
+            {!error && !isRedirecting && (
+              <p className="text-xs text-muted-foreground">
+                You'll be redirected automatically in a moment
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
