@@ -8,55 +8,58 @@ interface AccessControlProps {
   homepageUrl?: string;
 }
 
+// Main component for handling access control with URL shortener
 const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: AccessControlProps) => {
   const [hasAccess, setHasAccess] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // Check if user has valid access (within 24 hours)
   const checkAccess = () => {
     try {
       const accessGranted = localStorage.getItem('access_granted');
-      if (!accessGranted) {
-        return false;
-      }
+      if (!accessGranted) return false;
 
       const accessTime = parseInt(accessGranted);
-      const currentTime = Date.now();
-      const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+      const now = Date.now();
+      const dayInMs = 24 * 60 * 60 * 1000; // 24 hours
 
-      return (currentTime - accessTime) < twentyFourHours;
+      // Check if access is still valid
+      return (now - accessTime) < dayInMs;
     } catch (error) {
       console.error('Error checking access:', error);
       return false;
     }
   };
 
+  // Redirect user through the VPLink shortener
   const redirectToShortener = async () => {
     try {
       setIsRedirecting(true);
       
-      // Add the from_shortener parameter to the homepage URL
+      // Build return URL with tracking parameter
       const returnUrl = new URL(homepageUrl);
       returnUrl.searchParams.set('from_shortener', 'true');
       
-      // Generate a unique alias using timestamp to avoid conflicts
+      // Create unique alias to avoid conflicts
       const uniqueAlias = `ms${Date.now()}`;
       const apiUrl = `https://vplink.in/api?api=ad3ce711eb354d522cbac856b0dfa149b6c71e43&url=${encodeURIComponent(returnUrl.toString())}&alias=${uniqueAlias}`;
       
+      console.log('Creating short link...'); // Debug log
       const response = await fetch(apiUrl);
       const data = await response.json();
       
       if (data.status === 'success' && data.shortenedUrl) {
-        // Redirect to the shortened URL
+        // Success! Redirect to shortened URL
         window.location.href = data.shortenedUrl;
       } else {
-        console.error('Failed to get shortener URL. Response:', data);
-        // If shortener fails, redirect directly to the return URL
+        console.error('Shortener API error:', data);
+        // Fallback - redirect directly if shortener fails
         window.location.href = returnUrl.toString();
       }
     } catch (error) {
-      console.error('Error redirecting to shortener:', error);
-      // If there's an error, redirect directly to the return URL
+      console.error('Redirect error:', error);
+      // On error, redirect directly
       const returnUrl = new URL(homepageUrl);
       returnUrl.searchParams.set('from_shortener', 'true');
       window.location.href = returnUrl.toString();
@@ -70,23 +73,24 @@ const AccessControl = ({ children, homepageUrl = 'https://mywebsite.com/' }: Acc
     const fromShortener = urlParams.get('from_shortener');
 
     if (fromShortener === 'true') {
-      // User just returned from shortener
+      // User completed the shortener redirect - grant access!
       localStorage.setItem('access_granted', Date.now().toString());
       setHasAccess(true);
       setIsChecking(false);
-      // Clean up URL
+      
+      // Clean URL to remove the tracking param
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      // Check existing access
+      // Check if user already has access
       const accessValid = checkAccess();
       setHasAccess(accessValid);
       setIsChecking(false);
 
+      // Auto-redirect after brief delay if no access
       if (!accessValid) {
-        // Auto-redirect after a short delay
         setTimeout(() => {
           redirectToShortener();
-        }, 2000);
+        }, 2000); // Wait 2 seconds before redirect
       }
     }
   }, []);

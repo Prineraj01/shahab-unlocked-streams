@@ -5,8 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-
-// Import HLS.js
 import Hls from 'hls.js';
 
 interface VideoPlayerProps {
@@ -29,18 +27,20 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
 
-  const videoId = btoa(url).substring(0, 20); // Create unique ID for progress storage
+  // Generate a unique video ID for storing progress
+  const videoId = btoa(url).substring(0, 20);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Load saved progress
+    // Try to load saved progress for this video
     const savedProgress = localStorage.getItem(`video_progress_${videoId}`);
     if (savedProgress) {
       video.currentTime = parseFloat(savedProgress);
     }
 
+    // Check if browser supports HLS
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: false,
@@ -54,17 +54,17 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
         setIsLoading(false);
         setError(null);
         
-        // Get available quality levels and sort by height
+        // Extract available quality levels
         const levels = hls.levels
           .map((level, index) => ({
             height: level.height,
             bitrate: level.bitrate,
             index: index,
           }))
-          .sort((a, b) => b.height - a.height);
+          .sort((a, b) => b.height - a.height); // Sort highest to lowest
         
         setQualityLevels(levels);
-        setCurrentQuality(-1); // -1 means auto
+        setCurrentQuality(-1); // Auto quality
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -74,7 +74,7 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native support
+      // For Safari - it has native HLS support
       video.src = url;
       video.addEventListener('loadeddata', () => {
         setIsLoading(false);
@@ -89,6 +89,7 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
       setIsLoading(false);
     }
 
+    // Cleanup function
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -141,7 +142,7 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
 
     setCurrentTime(video.currentTime);
     
-    // Save progress every 5 seconds
+    // Auto-save progress every 5 seconds to avoid too many writes
     if (Math.floor(video.currentTime) % 5 === 0) {
       localStorage.setItem(`video_progress_${videoId}`, video.currentTime.toString());
     }
@@ -158,20 +159,22 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
     if (!video || duration === 0) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const width = rect.width;
-    const newTime = (clickX / width) * duration;
+    const clickPos = e.clientX - rect.left;
+    const barWidth = rect.width;
+    const seekTime = (clickPos / barWidth) * duration;
     
-    video.currentTime = newTime;
-    setCurrentTime(newTime);
+    video.currentTime = seekTime;
+    setCurrentTime(seekTime);
   };
 
+  // Format time to MM:SS
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Change video quality
   const changeQuality = (qualityIndex: number) => {
     if (hlsRef.current) {
       hlsRef.current.currentLevel = qualityIndex;
@@ -189,6 +192,7 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
     }
   };
 
+  // Change playback speed
   const changePlaybackRate = (rate: number) => {
     const video = videoRef.current;
     if (!video) return;
@@ -196,12 +200,14 @@ const VideoPlayer = ({ title, url, onBack }: VideoPlayerProps) => {
     video.playbackRate = rate;
     setPlaybackRate(rate);
     setShowSettings(false);
+    
     toast({
       title: 'Speed Changed',
       description: `Playback speed: ${rate}x`,
     });
   };
 
+  // Available playback speeds
   const playbackRates = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;

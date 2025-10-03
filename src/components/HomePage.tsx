@@ -19,19 +19,23 @@ const HomePage = () => {
   const [selectedVideo, setSelectedVideo] = useState<Lecture | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Handle video selection
   const handleVideoSelect = (lecture: Lecture) => {
     setSelectedVideo(lecture);
   };
 
+  // Go back to home from video player
   const handleBackToHome = () => {
     setSelectedVideo(null);
   };
 
+  // Toggle dark/light theme
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
     document.documentElement.classList.toggle('dark');
   };
 
+  // If user selected a video, show the player
   if (selectedVideo) {
     return (
       <VideoPlayer
